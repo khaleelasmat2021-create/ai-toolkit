@@ -1,0 +1,253 @@
+!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super AI Toolkit</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0f0c29;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      color: white;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: rgba(255,255,255,0.08);
+      backdrop-filter: blur(12px);
+      border-radius: 20px;
+      padding: 30px 25px;
+      width: 100%;
+      max-width: 600px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+    h1 { margin-bottom: 5px; font-size: 2rem; }
+    .subtitle { margin-bottom: 20px; opacity: 0.8; }
+    select, input, textarea, button {
+      width: 100%;
+      padding: 14px;
+      margin: 8px 0;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      background: rgba(255,255,255,0.12);
+      color: white;
+      outline: none;
+    }
+    select option { background: #302b63; color: white; }
+    input::placeholder, textarea::placeholder { color: #bbb; }
+    button {
+      background: #ff6b6b;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.3s, transform 0.1s;
+      margin-top: 12px;
+    }
+    button:hover { background: #ee5a24; }
+    button:active { transform: scale(0.97); }
+    #output {
+      background: rgba(255,255,255,0.95);
+      color: #222;
+      padding: 20px;
+      border-radius: 10px;
+      margin-top: 20px;
+      text-align: left;
+      white-space: pre-wrap;
+      display: none;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .error { color: #sk-or-v1-8314b0482776feb568c5218ce226b1342758b04608cae74a14e42963e5d4910d7; margin-top: 10px; }
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .btn-group button {
+      flex: 1;
+      background: #4CAF50;
+    }
+    .btn-group button.secondary {
+      background: #2196F3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧠 Super AI Toolkit</h1>
+    <p class="subtitle">All in one – stories, poems, names, recipes, chat, translate, summarize, lyrics</p>
+
+    <!-- Service Selector -->
+    <select id="service">
+      <option value="story">📖 Story Generator</option>
+      <option value="poem">✍️ Poem Generator</option>
+      <option value="name">💼 Business Name Generator</option>
+      <option value="recipe">🍳 Recipe Generator</option>
+      <option value="chatbot">💬 Chatbot</option>
+      <option value="translate">🌐 Translator</option>
+      <option value="summarize">📄 Summarizer</option>
+      <option value="lyrics">🎵 Song Lyrics Generator</option>
+    </select>
+
+    <!-- Input Area -->
+    <input type="text" id="inputText" placeholder="Enter your topic / keywords / text...">
+    
+    <button onclick="generate()">Generate</button>
+
+    <!-- Loading Indicator -->
+    <p class="loading" id="loading" style="display:none;">Generating...</p>
+
+    <!-- Output -->
+    <div id="output"></div>
+    <p class="error" id="error"></p>
+
+    <!-- Copy / Download buttons (hidden initially) -->
+    <div class="btn-group" id="actionButtons" style="display:none;">
+      <button onclick="copyOutput()">📋 Copy</button>
+      <button class="secondary" onclick="downloadOutput()">💾 Download .txt</button>
+    </div>
+  </div>
+
+  <script>
+    // ============================================
+    // CONFIGURATION – PUT YOUR OPENROUTER API KEY HERE
+    const API_KEY = "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";
+    const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+    const MODEL = "qwen/qwen3.8-27b";   // free model
+    // ============================================
+
+    // Service configurations
+    const services = {
+      story: {
+        system: "You are a creative storyteller. Write a short story (200-300 words) with a clear beginning, middle, and end.",
+        placeholder: "e.g., a dragon who loves baking",
+        promptPrefix: "Write a short story about: "
+      },
+      poem: {
+        system: "You are a poet. Write a beautiful short poem (4-8 lines) on the given theme.",
+        placeholder: "e.g., the ocean at night",
+        promptPrefix: "Write a poem about: "
+      },
+      name: {
+        system: "You are a branding expert. Generate 5 unique business name ideas based on the keyword. Keep them catchy and short.",
+        placeholder: "e.g., coffee shop",
+        promptPrefix: "Generate business names for: "
+      },
+      recipe: {
+        system: "You are a chef. Create a simple recipe using the given ingredients. Include ingredients list and step-by-step instructions.",
+        placeholder: "e.g., chicken, rice, soy sauce",
+        promptPrefix: "Create a recipe with these ingredients: "
+      },
+      chatbot: {
+        system: "You are a friendly and helpful assistant. Answer the user's question directly.",
+        placeholder: "e.g., What is the capital of France?",
+        promptPrefix: ""
+      },
+      translate: {
+        system: "You are a translator. Translate the given text to the target language. If no target language is specified, translate to English.",
+        placeholder: "e.g., Bonjour, comment ça va? (to English)",
+        promptPrefix: "Translate this: "
+      },
+      summarize: {
+        system: "You are a summarizer. Summarize the given text into 2-3 concise sentences.",
+        placeholder: "Paste a long text or article here...",
+        promptPrefix: "Summarize this: "
+      },
+      lyrics: {
+        system: "You are a songwriter. Write original song lyrics (verse, chorus, verse, chorus, bridge, outro) based on the given theme.",
+        placeholder: "e.g., a song about summer love",
+        promptPrefix: "Write song lyrics about: "
+      }
+    };
+
+    // Update placeholder when service changes
+    const serviceSelect = document.getElementById("service");
+    const inputField = document.getElementById("inputText");
+    const outputDiv = document.getElementById("output");
+    const errorP = document.getElementById("error");
+    const loadingP = document.getElementById("loading");
+    const actionButtons = document.getElementById("actionButtons");
+
+    serviceSelect.addEventListener("change", () => {
+      inputField.placeholder = services[serviceSelect.value].placeholder;
+    });
+    inputField.placeholder = services[serviceSelect.value].placeholder;
+
+    async function generate() {
+      const service = serviceSelect.value;
+      const userInput = inputField.value.trim();
+      if (!userInput) {
+        errorP.textContent = "Please enter something!";
+        return;
+      }
+      errorP.textContent = "";
+      outputDiv.style.display = "none";
+      actionButtons.style.display = "none";
+      loadingP.style.display = "block";
+
+      const config = services[service];
+      const fullPrompt = config.promptPrefix ? config.promptPrefix + userInput : userInput;
+
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: MODEL,
+            messages: [
+              { role: "system", content: config.system },
+              { role: "user", content: fullPrompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 500
+          })
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.error?.message || response.statusText);
+        }
+
+        const data = await response.json();
+        const output = data.choices[0].message.content;
+        outputDiv.textContent = output;
+        outputDiv.style.display = "block";
+        actionButtons.style.display = "flex";
+      } catch (err) {
+        errorP.textContent = "Error: " + err.message;
+      } finally {
+        loadingP.style.display = "none";
+      }
+    }
+
+    function copyOutput() {
+      const text = outputDiv.textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        alert("Copied to clipboard!");
+      }).catch(() => {
+        alert("Copy failed. Please select and copy manually.");
+      });
+    }
+
+    function downloadOutput() {
+      const text = outputDiv.textContent;
+      const blob = new Blob([text], { type: "text/plain" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "ai_output.txt";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+  </script>
+</body>
+</html>
