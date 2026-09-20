@@ -1,5 +1,7 @@
-
 export default async function handler(req, res) {
+  // Debug line — checks if the env variable is being read
+  console.log("Key being used:", process.env.GEMINI_API_KEY ? "KEY EXISTS" : "KEY IS MISSING/UNDEFINED");
+
   const { prompt, systemPrompt } = req.body;
 
   try {
