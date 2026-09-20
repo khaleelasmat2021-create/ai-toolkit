@@ -1,20 +1,23 @@
 export default async function handler(req, res) {
-  // Debug line — checks if the env variable is being read
-  console.log("Key being used:", process.env.GEMINI_API_KEY ? "KEY EXISTS" : "KEY IS MISSING/UNDEFINED");
-
   const { prompt, systemPrompt } = req.body;
 
   try {
     const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+      "https://api.groq.com/openai/v1/chat/completions",
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-goog-api-key": process.env.GEMINI_API_KEY
+          "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
         },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: systemPrompt + "\n\n" + prompt }] }]
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: prompt }
+          ],
+          temperature: 0.7,
+          max_tokens: 500
         })
       }
     );
@@ -25,7 +28,7 @@ export default async function handler(req, res) {
       throw new Error(data.error?.message || "Something went wrong");
     }
 
-    res.status(200).json({ reply: data.candidates[0].content.parts[0].text });
+    res.status(200).json({ reply: data.choices[0].message.content });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
